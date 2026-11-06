@@ -100,14 +100,74 @@ from ccr import bits_to_int32, load_labels
 
 ## Python
 
-Match the style already in `src/ccr/codec.py` and `src/ccr/labels.py`.
+Python in this repository follows the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html). That page is the formatting source. The rules below are the parts that apply to `ccr`. A project rule in this file still decides folder layout, the label sheet, and the public package names.
 
-- One job per module. `codec.py` maps bits and integers. `labels.py` reads sheets. The scanner, when it exists, reads images and calls the codec. Inside the package, import a sibling as `from ccr.codec import bits_to_int32`.
+### Layout of a file
+
+- Indent with 4 spaces. Do not use tabs.
+- Keep each line to 80 characters. A long import, a URL, or a path may run past 80. Do not continue a line with a backslash. Break inside parentheses instead.
+- Put one statement on a line.
+- A module starts with a docstring of one sentence ending in a period. Add a blank line and more explanation only when the sentence is not enough.
+- A public function whose behavior is not obvious from its name gets a docstring. Use the descriptive form already used in `src/ccr`, for example `"""Map a 22-bit card code to an int32."""`. When the function takes arguments a caller must understand, add `Args:`, `Returns:`, and `Raises:` sections. Indent those descriptions by 4 spaces.
+
+```python
+def bits_to_int32(bits: str) -> int:
+    """Map a 22-bit string to an int32.
+
+    Args:
+        bits: 22 characters, each "0" or "1". The leftmost bit has
+            weight 2**21.
+
+    Returns:
+        The integer value, from 0 through 4194303.
+
+    Raises:
+        ValueError: bits is the wrong length or contains another
+            character.
+        TypeError: bits is not a string.
+    """
+```
+
+### Imports
+
+Import packages and modules. Do not import a function, class, or constant from another module.
+
+```python
+from ccr import codec
+
+value = codec.bits_to_int32(bits)
+```
+
+Use the full package name. Do not use a relative import such as `from . import codec`.
+
+Order the import groups with a blank line between them: the standard library, then third-party packages, then `ccr`. Sort each group by the module path.
+
+`src/ccr/__init__.py` is the exception callers see. It re-exports the public names so an installed user can write `from ccr import bits_to_int32`. Code inside `src/ccr` and `tests/` imports the module instead.
+
+### Names
+
+| Kind | Form | Example |
+|---|---|---|
+| Module, function, variable, parameter | `snake_case` | `load_labels` |
+| Class | `CapWords` | `Label` |
+| Constant | `UPPER_SNAKE` | `BIT_COUNT` |
+| Internal helper | leading `_` | `_parse_row` |
+
+Type annotations go on public functions. Compare to `None` with `is`. Do not use a mutable value, such as a list or dict, as a default argument.
+
+### Errors and control flow
+
 - Check the failing cases at the top of the function, then return the result. Keep the happy path at the bottom.
 - Name a check after the condition it guards: empty path, wrong length, value out of range, duplicate image.
-- A function that loads data raises `ValueError` or `FileNotFoundError` with the image path or file path in the message.
+- Raise `ValueError` or `FileNotFoundError`, and put the image path or file path in the message.
+- Do not use a bare `except:`.
+- Use `pathlib.Path` for files.
+
+### This project
+
+- One job per module. `codec.py` maps bits and integers. `labels.py` reads sheets. The scanner, when it exists, reads images and calls the codec.
 - Expected integers for pictures live in `labels.csv`. Tests read those rows. They do not copy the expected integer into the test body when the sheet already has it.
-- Use `pathlib.Path` for files. Image paths in the CSV use forward slashes.
+- `pylint` is the checker named by the Google guide. Run it on `src/ccr` and `tests` before a change is treated as done. A warning that does not apply gets `# pylint: disable=message-name` on that line, with a short reason when the name is not enough.
 
 ## Current batches
 

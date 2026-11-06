@@ -1,16 +1,21 @@
-"""Load card label sheets. Each row ties one image to one int32."""
+"""Load card label sheets.
+
+Each row ties one image path to one int32.
+"""
 
 import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-from ccr.codec import BIT_COUNT, MAX_VALUE, bits_to_int32
+from ccr import codec
 
 HEADER = ("image", "value", "bits", "note")
 
 
 @dataclass(frozen=True)
 class Label:
+    """One labeled image and the int32 it must decode to."""
+
     image: str
     image_path: Path
     value: int | None
@@ -19,6 +24,18 @@ class Label:
 
 
 def discover_label_files(datasets_dir: str | Path) -> list[Path]:
+    """Return each batch sheet directly under a datasets folder.
+
+    Args:
+        datasets_dir: Folder whose children are batches. A batch is
+            included when it contains labels.csv.
+
+    Returns:
+        The labels.csv path for each batch that has one.
+
+    Raises:
+        FileNotFoundError: datasets_dir is not a folder.
+    """
     root = Path(datasets_dir)
     if not root.is_dir():
         raise FileNotFoundError(f"datasets folder not found: {root}")
@@ -26,6 +43,19 @@ def discover_label_files(datasets_dir: str | Path) -> list[Path]:
 
 
 def load_labels(csv_path: str | Path) -> list[Label]:
+    """Load one label sheet and check each row.
+
+    Args:
+        csv_path: Path to a labels.csv file.
+
+    Returns:
+        One Label per data row. Image paths are relative to the sheet.
+
+    Raises:
+        FileNotFoundError: csv_path is not a file.
+        ValueError: The header, a value, the bits, or a repeated image
+            path is invalid.
+    """
     path = Path(csv_path)
     if not path.is_file():
         raise FileNotFoundError(f"label file not found: {path}")
@@ -40,7 +70,8 @@ def load_labels(csv_path: str | Path) -> list[Label]:
 
     fieldnames = tuple(name.strip() for name in reader.fieldnames)
     if fieldnames != HEADER:
-        raise ValueError(f"{path}: header must be {','.join(HEADER)}")
+        joined = ",".join(HEADER)
+        raise ValueError(f"{path}: header must be {joined}")
 
     labels: list[Label] = []
     seen: set[str] = set()
@@ -97,8 +128,10 @@ def _parse_value(image: str, raw: str) -> int | None:
     if not raw.isdigit():
         raise ValueError(f"{image}: value must be a decimal int32 or none")
     value = int(raw)
-    if value > MAX_VALUE:
-        raise ValueError(f"{image}: value must be from 0 through {MAX_VALUE}")
+    if value > codec.MAX_VALUE:
+        raise ValueError(
+            f"{image}: value must be from 0 through {codec.MAX_VALUE}"
+        )
     return value
 
 
@@ -109,9 +142,13 @@ def _parse_bits(image: str, bits: str, value: int | None) -> str:
         return ""
     if bits == "":
         return ""
-    if len(bits) != BIT_COUNT:
-        raise ValueError(f"{image}: bits must be {BIT_COUNT} characters")
-    parsed = bits_to_int32(bits)
+    if len(bits) != codec.BIT_COUNT:
+        raise ValueError(
+            f"{image}: bits must be {codec.BIT_COUNT} characters"
+        )
+    parsed = codec.bits_to_int32(bits)
     if parsed != value:
-        raise ValueError(f"{image}: bits {bits} equal {parsed}, not {value}")
+        raise ValueError(
+            f"{image}: bits {bits} equal {parsed}, not {value}"
+        )
     return bits

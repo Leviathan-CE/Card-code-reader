@@ -2,20 +2,24 @@ from pathlib import Path
 
 import pytest
 
-from ccr import HEADER, bits_to_int32, discover_label_files, load_labels
+from ccr import codec
+from ccr import labels
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASETS = ROOT / "datasets"
 
 
 def test_project_datasets_are_found() -> None:
-    files = discover_label_files(DATASETS)
+    files = labels.discover_label_files(DATASETS)
     names = {path.parent.name for path in files}
     assert names == {"HMIV MKI", "camera", "synthetic"}
 
 
 def test_each_dataset_loads() -> None:
-    loaded = {path.parent.name: load_labels(path) for path in discover_label_files(DATASETS)}
+    loaded = {
+        path.parent.name: labels.load_labels(path)
+        for path in labels.discover_label_files(DATASETS)
+    }
 
     synthetic = {label.image: label for label in loaded["synthetic"]}
     assert synthetic["images/all_zero.png"].value == 0
@@ -34,18 +38,18 @@ def test_each_dataset_loads() -> None:
 
 
 def test_bits_column_matches_mapper() -> None:
-    for csv_path in discover_label_files(DATASETS):
-        for label in load_labels(csv_path):
+    for csv_path in labels.discover_label_files(DATASETS):
+        for label in labels.load_labels(csv_path):
             if label.value is None:
                 continue
             if label.bits == "":
                 continue
-            assert bits_to_int32(label.bits) == label.value
+            assert codec.bits_to_int32(label.bits) == label.value
 
 
 def test_image_paths_stay_inside_their_dataset() -> None:
-    for csv_path in discover_label_files(DATASETS):
-        for label in load_labels(csv_path):
+    for csv_path in labels.discover_label_files(DATASETS):
+        for label in labels.load_labels(csv_path):
             assert label.image_path == csv_path.parent / label.image
 
 
@@ -61,7 +65,7 @@ def test_comments_and_blank_lines_are_skipped(tmp_path: Path) -> None:
         "\n".join(
             [
                 "# title",
-                ",".join(HEADER),
+                ",".join(labels.HEADER),
                 "",
                 "images/one.png,1,0000000000000000000001,first",
                 "# ignored",
@@ -70,10 +74,13 @@ def test_comments_and_blank_lines_are_skipped(tmp_path: Path) -> None:
         )
         + "\n",
     )
-    labels = load_labels(path)
-    assert [label.image for label in labels] == ["images/one.png", "images/two.png"]
-    assert labels[1].bits == ""
-    assert labels[1].value == 2
+    rows = labels.load_labels(path)
+    assert [row.image for row in rows] == [
+        "images/one.png",
+        "images/two.png",
+    ]
+    assert rows[1].bits == ""
+    assert rows[1].value == 2
 
 
 def test_duplicate_image_is_rejected(tmp_path: Path) -> None:
@@ -81,7 +88,7 @@ def test_duplicate_image_is_rejected(tmp_path: Path) -> None:
         tmp_path,
         "\n".join(
             [
-                ",".join(HEADER),
+                ",".join(labels.HEADER),
                 "images/one.png,1,,",
                 "images/one.png,2,,",
             ]
@@ -89,7 +96,7 @@ def test_duplicate_image_is_rejected(tmp_path: Path) -> None:
         + "\n",
     )
     with pytest.raises(ValueError, match="duplicate image"):
-        load_labels(path)
+        labels.load_labels(path)
 
 
 def test_bits_that_disagree_with_value_are_rejected(tmp_path: Path) -> None:
@@ -97,14 +104,14 @@ def test_bits_that_disagree_with_value_are_rejected(tmp_path: Path) -> None:
         tmp_path,
         "\n".join(
             [
-                ",".join(HEADER),
+                ",".join(labels.HEADER),
                 "images/one.png,1,0000000000000000000000,",
             ]
         )
         + "\n",
     )
     with pytest.raises(ValueError, match="equal 0, not 1"):
-        load_labels(path)
+        labels.load_labels(path)
 
 
 def test_none_with_bits_is_rejected(tmp_path: Path) -> None:
@@ -112,14 +119,14 @@ def test_none_with_bits_is_rejected(tmp_path: Path) -> None:
         tmp_path,
         "\n".join(
             [
-                ",".join(HEADER),
+                ",".join(labels.HEADER),
                 "images/one.png,none,0000000000000000000000,",
             ]
         )
         + "\n",
     )
     with pytest.raises(ValueError, match="none cannot include bits"):
-        load_labels(path)
+        labels.load_labels(path)
 
 
 def test_value_above_22_bits_is_rejected(tmp_path: Path) -> None:
@@ -127,16 +134,16 @@ def test_value_above_22_bits_is_rejected(tmp_path: Path) -> None:
         tmp_path,
         "\n".join(
             [
-                ",".join(HEADER),
+                ",".join(labels.HEADER),
                 "images/one.png,4194304,,",
             ]
         )
         + "\n",
     )
     with pytest.raises(ValueError, match="0 through 4194303"):
-        load_labels(path)
+        labels.load_labels(path)
 
 
 def test_missing_file_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        load_labels(tmp_path / "missing.csv")
+        labels.load_labels(tmp_path / "missing.csv")
