@@ -1,0 +1,2 @@
+the little squares are 10pxx10px the three finder sqaures are 40x40 with 5 px layer on each black white black.
+the actual pixels are 40x40 still the alignemtn square is 30x30 with 5px alreternateing white black white with a 5px surarounding alrertate pâttern.
