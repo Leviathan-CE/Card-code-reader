@@ -27,7 +27,9 @@ card-code-reader/
     camera/
       labels.csv
       images/
-  outputs/                decoder debug files, created when the scanner writes them
+  examples/
+    ccr_r1/               checked-in CCR-R1 design samples
+  outputs/                local decoder debug only (gitignored)
 ```
 
 `datasets/` is labeled input. One batch is one folder. The batch name is lowercase. Use an underscore when the name needs two words, as in `walking_bit`.
@@ -37,7 +39,7 @@ Each batch contains:
 - `labels.csv`, always that filename
 - `images/`, always that folder name
 
-`outputs/` is for crops, debug overlays, and failed reads. Generated files stay there. They are not added to a label sheet.
+`examples/` holds design samples that belong in the repo, such as the CCR-R1 PNGs. `outputs/` is only for local crops, debug overlays, and failed reads. It stays gitignored.
 
 Python tests live in `tests/test_*.py`. They are code checks. They are not a place to store card photos.
 
