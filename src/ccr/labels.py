@@ -7,9 +7,12 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
+import pandas as pd
+
 from ccr import codec
 
 HEADER = ("image", "value", "bits", "note")
+COLUMNS = ("image", "image_path", "value", "bits", "note")
 
 
 @dataclass(frozen=True)
@@ -42,14 +45,16 @@ def discover_label_files(datasets_dir: str | Path) -> list[Path]:
     return sorted(root.glob("*/labels.csv"))
 
 
-def load_labels(csv_path: str | Path) -> list[Label]:
+def load_labels(csv_path: str | Path) -> pd.DataFrame:
     """Load one label sheet and check each row.
 
     Args:
         csv_path: Path to a labels.csv file.
 
     Returns:
-        One Label per data row. Image paths are relative to the sheet.
+        A DataFrame with columns image, image_path, value, bits, and
+        note. Image paths are relative to the sheet. value uses a
+        nullable integer dtype so a none row is NA.
 
     Raises:
         FileNotFoundError: csv_path is not a file.
@@ -73,15 +78,33 @@ def load_labels(csv_path: str | Path) -> list[Label]:
         joined = ",".join(HEADER)
         raise ValueError(f"{path}: header must be {joined}")
 
-    labels: list[Label] = []
+    rows: list[Label] = []
     seen: set[str] = set()
     for row in reader:
         label = _parse_row(row, path.parent)
         if label.image in seen:
             raise ValueError(f"{label.image}: duplicate image")
         seen.add(label.image)
-        labels.append(label)
-    return labels
+        rows.append(label)
+    return _labels_to_frame(rows)
+
+
+def _labels_to_frame(rows: list[Label]) -> pd.DataFrame:
+    frame = pd.DataFrame(
+        [
+            {
+                "image": row.image,
+                "image_path": row.image_path,
+                "value": row.value,
+                "bits": row.bits,
+                "note": row.note,
+            }
+            for row in rows
+        ],
+        columns=list(COLUMNS),
+    )
+    frame["value"] = frame["value"].astype("Int64")
+    return frame
 
 
 def _data_lines(path: Path) -> list[str]:

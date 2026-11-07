@@ -90,7 +90,11 @@ People install the package and write:
 
 ```python
 from ccr import bits_to_int32, load_labels
+
+frame = load_labels("datasets/HMIV MKI/labels.csv")
 ```
+
+`load_labels` returns a pandas `DataFrame` with columns `image`, `image_path`, `value`, `bits`, and `note`. `value` uses a nullable integer dtype, so a `none` row is NA.
 
 `src/ccr/__init__.py` lists the public names in `__all__`. A new public function is added there. A helper whose name starts with `_` stays inside its module.
 

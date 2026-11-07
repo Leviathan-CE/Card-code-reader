@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from ccr import codec
@@ -21,36 +22,39 @@ def test_each_dataset_loads() -> None:
         for path in labels.discover_label_files(DATASETS)
     }
 
-    synthetic = {label.image: label for label in loaded["synthetic"]}
-    assert synthetic["images/all_zero.png"].value == 0
-    assert synthetic["images/all_ones.png"].value == 4194303
-    assert synthetic["images/blank_card.png"].value is None
-    assert synthetic["images/blank_card.png"].bits == ""
+    synthetic = loaded["synthetic"].set_index("image")
+    assert int(synthetic.loc["images/all_zero.png", "value"]) == 0
+    assert int(synthetic.loc["images/all_ones.png", "value"]) == 4194303
+    assert pd.isna(synthetic.loc["images/blank_card.png", "value"])
+    assert synthetic.loc["images/blank_card.png", "bits"] == ""
 
-    assert loaded["camera"] == []
+    assert loaded["camera"].empty
+    assert list(loaded["camera"].columns) == list(labels.COLUMNS)
 
     hmiv = loaded["HMIV MKI"]
     assert len(hmiv) == 7
-    assert len({label.value for label in hmiv}) == 1
-    assert len({label.bits for label in hmiv}) == 1
-    for label in hmiv:
-        assert label.image_path.is_file()
+    assert hmiv["value"].nunique(dropna=False) == 1
+    assert hmiv["bits"].nunique(dropna=False) == 1
+    for image_path in hmiv["image_path"]:
+        assert image_path.is_file()
 
 
 def test_bits_column_matches_mapper() -> None:
     for csv_path in labels.discover_label_files(DATASETS):
-        for label in labels.load_labels(csv_path):
-            if label.value is None:
+        frame = labels.load_labels(csv_path)
+        for row in frame.itertuples(index=False):
+            if pd.isna(row.value):
                 continue
-            if label.bits == "":
+            if row.bits == "":
                 continue
-            assert codec.bits_to_int32(label.bits) == label.value
+            assert codec.bits_to_int32(row.bits) == int(row.value)
 
 
 def test_image_paths_stay_inside_their_dataset() -> None:
     for csv_path in labels.discover_label_files(DATASETS):
-        for label in labels.load_labels(csv_path):
-            assert label.image_path == csv_path.parent / label.image
+        frame = labels.load_labels(csv_path)
+        for row in frame.itertuples(index=False):
+            assert row.image_path == csv_path.parent / row.image
 
 
 def _write_csv(directory: Path, body: str) -> Path:
@@ -74,13 +78,13 @@ def test_comments_and_blank_lines_are_skipped(tmp_path: Path) -> None:
         )
         + "\n",
     )
-    rows = labels.load_labels(path)
-    assert [row.image for row in rows] == [
+    frame = labels.load_labels(path)
+    assert list(frame["image"]) == [
         "images/one.png",
         "images/two.png",
     ]
-    assert rows[1].bits == ""
-    assert rows[1].value == 2
+    assert frame.iloc[1]["bits"] == ""
+    assert int(frame.iloc[1]["value"]) == 2
 
 
 def test_duplicate_image_is_rejected(tmp_path: Path) -> None:
