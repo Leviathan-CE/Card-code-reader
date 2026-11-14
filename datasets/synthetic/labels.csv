@@ -2,3 +2,5 @@ image,value,bits,note
 images/all_zero.png,0,0000000000000000000000,synthetic
 images/all_ones.png,4194303,1111111111111111111111,synthetic max int32
 images/blank_card.png,none,,no symbol
+images/live-new.jpg,none,,none
+images/standard-Blitz Infiltrator.png,none,,none
